@@ -75,6 +75,20 @@ class ExtractUtils:
         with open(file, 'rb') as target:
             return sha1(target.read()).hexdigest()
 
+    @staticmethod
+    def fix_xml(xml):
+        """
+        Fixes the given xml file by moving the version declaration to the header if not already at it
+        """
+        with open(xml, 'r+') as file:
+            matter = file.readlines()
+            header = matter.index("\n".join(s for s in matter if '<?xml version' in s))
+            if header != 0:
+                matter.insert(0, matter.pop(header))
+                file.seek(0)
+                file.writelines(matter)
+                file.truncate()
+
     def init_adb_connection(self):
         """
         Depends upon: adb_connected function
@@ -233,6 +247,7 @@ class ExtractUtils:
             Path(dir_path).mkdir(parents=True, exist_ok=True)
 
     def write_product_packages(self, prop_list):
+        """Writes product packages into blueprint files from the given list"""
         # Filter the given list to remove copy targets
         work_list = self.target_list(prop_list, "packages")
 
