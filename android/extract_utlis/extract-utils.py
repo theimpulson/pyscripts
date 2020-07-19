@@ -58,9 +58,7 @@ class ExtractUtils:
             open(args, 'a').close()
 
     def adb_connected(self):
-        """
-        Returns True if adb is up and not in recovery
-        """
+        """Returns True if adb is up and not in recovery"""
         process = subprocess.Popen(['adb', 'get-state'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = process.communicate()
         if process.returncode == 0 and 'device' in str(output):
@@ -69,17 +67,13 @@ class ExtractUtils:
             return False
 
     def get_hash(self, file):
-        """
-        Returns sha1 of the given file
-        """
+        """Returns sha1 of the given file"""
         with open(file, 'rb') as target:
             return sha1(target.read()).hexdigest()
 
     @staticmethod
     def fix_xml(xml):
-        """
-        Fixes the given xml file by moving the version declaration to the header if not already at it
-        """
+        """Fixes the given xml file by moving the version declaration to the header if not already at it"""
         with open(xml, 'r+') as file:
             matter = file.readlines()
             header = matter.index("\n".join(s for s in matter if '<?xml version' in s))
@@ -139,9 +133,7 @@ class ExtractUtils:
             return dst
 
     def target_list(self, prop_list, content=''):
-        """
-        Takes a list and content type as argument and returns a filtered list which contains desired contents
-        """
+        """Takes a list and content type as argument and returns a filtered list which contains desired contents"""
         work_list = []
         for item in list(prop_list):
             if content is 'packages':
