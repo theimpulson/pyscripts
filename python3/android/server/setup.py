@@ -28,6 +28,7 @@ parser = argparse.ArgumentParser(description='python3 script to setup a remote s
 parser.add_argument('-u', '--user', type=str, help='User to login into the remote server')
 parser.add_argument('-addr', '--address', type=str, help='IP/Domain address of the remote server')
 parser.add_argument('-pn', '--packet_nvme', type=bool, help='Bool to automatically create a nvme partition in packet server')
+parser.add_argument('-s', '--sync', type=bool, help='Sync required projects automatically to the nvme partition')
 args = parser.parse_args()
 
 client = paramiko.SSHClient()
@@ -40,7 +41,7 @@ packages = "adb autoconf automake axel bc bison build-essential ccache clang cma
            "g++-multilib gawk gcc gcc-multilib git gnupg gperf htop imagemagick lib32ncurses5-dev lib32z1-dev libtinfo5 libc6-dev libcap-dev "\
            "libexpat1-dev libgmp-dev '^liblz4-.*' '^liblzma.*' libmpc-dev libmpfr-dev libncurses5-dev libsdl1.2-dev libssl-dev libtool libxml2 "\
            "libxml2-utils '^lzma.*' lzop maven ncftp ncurses-dev patch patchelf pkg-config pngcrush pngquant python2.7 python-all-dev re2c "\
-           "schedtool squashfs-tools subversion texinfo unzip w3m xsltproc zip zlib1g-dev lzip libxml-simple-perl apt-utils python"
+           "schedtool squashfs-tools subversion texinfo unzip w3m xsltproc zip zlib1g-dev lzip libxml-simple-perl apt-utils python libncurses5 libncurses5:i386"
 
 bash_rc = r"""
 # ccache (enable by default)
@@ -64,11 +65,14 @@ fi
 
 commands = [
     'sudo add-apt-repository universe && sudo apt update',
+    'sudo dpkg --add-architecture i386',
     f'sudo apt install {packages} -y',
     fr'echo "{userinfo[1]} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers',
     f'useradd -m {userinfo[1]} && usermod -aG sudo {userinfo[1]}',
-    fr'chsh -s /bin/bash {userinfo[1]}',
+    f'sudo -i -u {userinfo[1]} bash',
     fr'touch /home/{userinfo[1]}/.cloud-warnings.skip',
+    fr'mkdir -p ~/bin && PATH=~/bin:$PATH',
+    fr'curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo && chmod a+x ~/bin/repo',
     fr'mkdir -p /home/{userinfo[1]}/.ssh/',
     fr'echo "{pub_key}" > /home/{userinfo[1]}/.ssh/authorized_keys',
     f'git config --global user.email {userinfo[2]}',
@@ -78,10 +82,22 @@ commands = [
 ]
 
 nvme = [
+    f'sudo -i -u root bash',
     r'mkfs.ext4 /dev/nvme0n1',
     r'mkdir -p /nvme && mount /dev/nvme0n1 /nvme',
     r'echo "/dev/nvme0n1     /nvme      ext4    errors=remount-ro    0    1"  >> /etc/fstab',
     fr'chown -R {userinfo[1]}:{userinfo[1]} /nvme',
+]
+
+sync = [
+    f'sudo -i -u {userinfo[1]} bash',
+    fr'source /home/{userinfo[1]}/.bashrc',
+    r'git clone https://github.com/kdrag0n/proton-clang kernel/proton-clang --depth=1',
+    r'git clone https://github.com/LineageOS/android_kernel_nokia_sdm660 kernel/sdm660',
+    r'git clone https://github.com/theimpulson/superr',
+    r'git clone https://gitlab.com/RaghuVarma331/nokia-dumps-10.0 --depth=1',
+    r'mkdir -p los/ && cd los/',
+    r'tmux new -d -s lineage-session "echo y | repo init -u git://github.com/LineageOS/android.git -b lineage-17.1; repo sync"',
 ]
 
 # Connect to the given client
@@ -107,6 +123,16 @@ if args.packet_nvme:
             print(lines.strip())
         for lines in stderr.readlines():
             print(lines.strip())
+
+if args.sync:
+    print('\033[92mSyncing required repositories\033[00m\n')
+    for cmd in sync:
+        stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)
+        stdin.close()
+        for line in iter(stdout.readline, ''):
+            print(line, end='')
+        for line in iter(stderr.readline, ''):
+            print(line, end='')
 
 # Close the client as setup is done
 client.close()
